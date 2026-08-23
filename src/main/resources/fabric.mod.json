@@ -3,7 +3,7 @@
   "id": "speedrunbot",
   "version": "${version}",
   "name": "${mod_name}",
-  "description": "Any% speedrun assistant on top of normal Baritone (#goto #mine #resume #stop)",
+  "description": "Any% speedrun bot with built-in SRBaritone (#start #goto #mine #stop)",
   "authors": ["barnesjayren0-sudo"],
   "contact": {
     "homepage": "https://github.com/barnesjayren0-sudo/Speedrun-Bot"
@@ -20,8 +20,5 @@
     "fabric-api": "*",
     "minecraft": "~1.21.11",
     "java": ">=21"
-  },
-  "suggests": {
-    "baritone": "*"
   }
 }
