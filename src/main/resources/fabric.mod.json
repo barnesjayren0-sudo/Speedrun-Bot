@@ -3,11 +3,9 @@
   "id": "speedrunbot",
   "version": "${version}",
   "name": "${mod_name}",
-  "description": "Minecraft 1.21.11 Any% bot with built-in SRBaritone (#start #goto #mine)",
+  "description": "1.21.11 speedrun bot — SRBaritone + AltoClef-style task chains",
   "authors": ["barnesjayren0-sudo"],
-  "contact": {
-    "homepage": "https://github.com/barnesjayren0-sudo/Speedrun-Bot"
-  },
+  "contact": {"homepage": "https://github.com/barnesjayren0-sudo/Speedrun-Bot"},
   "license": "MIT",
   "environment": "client",
   "entrypoints": {
