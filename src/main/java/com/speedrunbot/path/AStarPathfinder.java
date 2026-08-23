@@ -8,10 +8,6 @@ import net.minecraft.world.World;
 
 import java.util.*;
 
-/**
- * Lightweight A* on a 3D grid — good enough for short/mid range goals.
- * Not full Baritone, but our own and under our control.
- */
 public final class AStarPathfinder {
 
     private static final int MAX_NODES = 25000;
@@ -31,7 +27,6 @@ public final class AStarPathfinder {
         World world = mc.world;
         BlockPos start = mc.player.getBlockPos();
         int sx = start.getX(), sy = start.getY(), sz = start.getZ();
-
         if (goal.isInGoal(sx, sy, sz)) return List.of(start);
 
         PriorityQueue<PathNode> open = new PriorityQueue<>(Comparator.comparingDouble(n -> n.f));
@@ -47,6 +42,8 @@ public final class AStarPathfinder {
         int expanded = 0;
         int limit = Math.min(maxNodes, MAX_NODES);
         PathNode best = root;
+        int bottom = world.getBottomY();
+        int top = bottom + world.getHeight();
 
         while (!open.isEmpty() && expanded < limit) {
             PathNode cur = open.poll();
@@ -57,7 +54,6 @@ public final class AStarPathfinder {
             if (goal.heuristic(cur.x, cur.y, cur.z) < goal.heuristic(best.x, best.y, best.z)) {
                 best = cur;
             }
-
             if (goal.isInGoal(cur.x, cur.y, cur.z)) {
                 return reconstruct(cur);
             }
@@ -66,8 +62,7 @@ public final class AStarPathfinder {
                 int nx = cur.x + d[0];
                 int ny = cur.y + d[1];
                 int nz = cur.z + d[2];
-
-                if (ny < world.getBottomY() || ny >= world.getTopYInclusive()) continue;
+                if (ny < bottom || ny >= top) continue;
                 if (!isWalkable(world, nx, ny, nz)) continue;
 
                 long key = BlockKeys.pack(nx, ny, nz);
@@ -84,51 +79,46 @@ public final class AStarPathfinder {
                 } else if (ng >= next.g) {
                     continue;
                 }
-
                 next.parent = cur;
                 next.g = ng;
                 next.f = ng + goal.heuristic(nx, ny, nz);
                 open.add(next);
             }
         }
-
-        // Partial path toward closest approach
         if (best != root) return reconstruct(best);
         return List.of();
     }
 
     private static List<BlockPos> reconstruct(PathNode end) {
         LinkedList<BlockPos> path = new LinkedList<>();
-        PathNode n = end;
-        while (n != null) {
+        for (PathNode n = end; n != null; n = n.parent) {
             path.addFirst(new BlockPos(n.x, n.y, n.z));
-            n = n.parent;
         }
         return path;
     }
 
-    /** Feet at (x,y,z): block below solid-ish, feet+head not solid. */
     public static boolean isWalkable(World world, int x, int y, int z) {
         BlockPos feet = new BlockPos(x, y, z);
         BlockPos head = feet.up();
         BlockPos below = feet.down();
-
         BlockState feetState = world.getBlockState(feet);
         BlockState headState = world.getBlockState(head);
         BlockState belowState = world.getBlockState(below);
 
-        if (isSolid(feetState) || isSolid(headState)) return false;
-        // need ground OR water swim
-        if (isSolid(belowState)) return true;
-        if (feetState.isOf(Blocks.WATER) || feetState.isOf(Blocks.LAVA)) return true;
-        // step-up from slab-ish: allow if below is not air and not dangerous
-        return !belowState.isAir() && !belowState.isOf(Blocks.LAVA);
+        if (collides(feetState) || collides(headState)) return false;
+        if (solidGround(belowState)) return true;
+        return feetState.isOf(Blocks.WATER);
     }
 
-    private static boolean isSolid(BlockState s) {
+    private static boolean collides(BlockState s) {
         if (s.isAir()) return false;
-        if (s.isOf(Blocks.WATER) || s.isOf(Blocks.LAVA) || s.isOf(Blocks.SHORT_GRASS)
-                || s.isOf(Blocks.TALL_GRASS) || s.isOf(Blocks.SNOW)) return false;
-        return s.isSolidBlock(null, BlockPos.ORIGIN) || s.blocksMovement();
+        if (s.isOf(Blocks.WATER) || s.isOf(Blocks.LAVA)) return false;
+        if (s.isOf(Blocks.SHORT_GRASS) || s.isOf(Blocks.TALL_GRASS) || s.isOf(Blocks.SNOW)) return false;
+        return s.blocksMovement();
+    }
+
+    private static boolean solidGround(BlockState s) {
+        if (s.isAir() || s.isOf(Blocks.LAVA) || s.isOf(Blocks.WATER)) return false;
+        return s.blocksMovement();
     }
 }

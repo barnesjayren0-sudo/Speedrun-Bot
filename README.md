@@ -1,71 +1,53 @@
-# Speedrun-Bot v1.2.0
+# Speedrun-Bot v1.3.0 — SRBaritone
 
-Fabric **Minecraft 1.21.11** · Any% phase pipeline **on top of normal Baritone**
+Fabric **1.21.11** speedrun assistant with a **built-in pathfinder** (our own mini-Baritone).
 
----
-
-## Install (both jars)
-
-1. Fabric Loader for **1.21.11**  
-2. Fabric API  
-3. **`baritone-fabric-1.21.11.jar`** → `mods/`  
-4. **`speedrun-bot-1.2.0.jar`** → `mods/`
-
-Baritone is a **separate mod**. Put the jar you have (`baritone-fabric-1.21.11.jar`) next to Speedrun-Bot.
+No external Baritone jar required for `#` commands.
 
 ---
 
-## Normal Baritone commands (`#`)
-
-These are handled by **Baritone itself** (we do not block `#` chat):
-
-| Command | What it does |
-|---------|----------------|
-| `#goto x y z` | Path to coords |
-| `#mine diamond_ore` | Mine ore |
-| `#stop` / `#cancel` | Stop pathing |
-| `#resume` | Resume after pause |
-| `#path` | Path to current goal |
-| `#explore` | Explore |
-| `#help` | List commands |
-
-**Note:** Baritone does **not** have `#start`. The real command is **`#resume`**.  
-Speedrun-Bot aliases `start` → `resume` when you use `.sr bati start` or `.sr resume`.
-
----
-
-## Speedrun commands (`.sr`)
+## Commands (`#` = SRBaritone)
 
 | Command | Action |
 |---------|--------|
-| `.sr start` | Start Any% phase pipeline |
-| `.sr stop` | Stop pipeline |
-| `.sr skip` | Next phase |
-| `.sr status` | Phase + Baritone status |
-| `.sr baritone` | Re-hook Baritone |
-| `.sr resume` | `#resume` |
-| `.sr bati <cmd>` | Run any Baritone command from code |
-| `.sr path x y z` | Path to block |
+| **`#start`** | Start / resume pathing |
+| **`#stop`** | Stop |
+| **`#pause`** / **`#resume`** | Pause / resume |
+| **`#goto x y z`** | Path to block |
+| **`#goto x z`** | Path to XZ |
+| **`#mine iron_ore`** | Find + path + dig |
+| **`#thisway [dist]`** | Walk forward |
+| **`#status`** | Status |
+| **`#help`** | Help |
 
----
-
-## Build
-
-```bash
-git clone https://github.com/barnesjayren0-sudo/Speedrun-Bot.git
-cd Speedrun-Bot
-./gradlew build
+### Speedrun pipeline
+```text
+.sr start | stop | skip | status | goto WOOD
 ```
 
-Java **21** required.
+---
+
+## Install
+
+1. Fabric 1.21.11 + Fabric API  
+2. Build and put jar in `mods/`:
+   ```bash
+   ./gradlew clean build --no-daemon
+   ```
+3. Optional: you can still install official Baritone next to it; **SRBaritone owns `#`** in this mod.
 
 ---
 
-## Architecture
+## What we built
 
-- **Baritone** = pathfinding + `#` commands (your jar)  
-- **Speedrun-Bot** = phase brain (wood → dragon) that *calls* Baritone when hooked  
+- **A\*** grid pathfinder  
+- **PathExecutor** (look + W + sprint + jump)  
+- **GoalBlock / GoalXZ**  
+- **# command parser** including **`#start`**  
+- Any% phase brain still available via `.sr start`
+
+This is not full Cabaletta Baritone (no elytra process, no schematics). It is **ours**, with the commands you wanted.
 
 ---
 
-**Version:** 1.2.0 · **MC:** 1.21.11  
+**Version:** 1.3.0  
