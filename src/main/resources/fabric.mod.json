@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "speedrunbot",
+  "version": "${version}",
+  "name": "${mod_name}",
+  "description": "A Minecraft speedrunning bot using Baritone",
+  "authors": [
+    "SpeedrunBot"
+  ],
+  "contact": {
+    "homepage": "https://github.com/barnesjayren0-sudo/Speedrun-Bot"
+  },
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.speedrunbot.SpeedrunBotMod"
+    ],
+    "client": [
+      "com.speedrunbot.SpeedrunBotClient"
+    ]
+  },
+  "mixins": [
+    "speedrunbot.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.14.21",
+    "fabric": "*",
+    "minecraft": "1.20.1"
+  }
+}
