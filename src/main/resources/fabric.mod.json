@@ -3,7 +3,7 @@
   "id": "speedrunbot",
   "version": "${version}",
   "name": "${mod_name}",
-  "description": "1.21.11 speedrun bot — SRBaritone + AltoClef-style task chains",
+  "description": "1.21.11 speedrun bot — SRBaritone + task chains (polished)",
   "authors": ["barnesjayren0-sudo"],
   "contact": {"homepage": "https://github.com/barnesjayren0-sudo/Speedrun-Bot"},
   "license": "MIT",

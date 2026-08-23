@@ -44,6 +44,10 @@ public class PathExecutor {
 
     public void tick(MinecraftClient mc) {
         if (!active || mc.player == null || mc.options == null) return;
+        if (mc.currentScreen != null) {
+            releaseMovement(mc);
+            return;
+        }
         if (index >= path.size()) {
             clear();
             return;
@@ -56,7 +60,7 @@ public class PathExecutor {
         double horiz = Math.sqrt(dx * dx + dz * dz);
         double dy = target.getY() - mc.player.getY();
 
-        if (horiz < SRSettings.arriveDist && Math.abs(dy) < 1.25) {
+        if (horiz < SRSettings.arriveDist && Math.abs(dy) < 1.3) {
             index++;
             stuckSince = 0;
             if (index >= path.size()) clear();
@@ -64,9 +68,8 @@ public class PathExecutor {
         }
 
         long now = System.currentTimeMillis();
-        if (lastPos != null && now - lastMoveCheck > 400) {
-            double moved = lastPos.squaredDistanceTo(mc.player.getPos());
-            if (moved < 0.04) {
+        if (lastPos != null && now - lastMoveCheck > 350) {
+            if (lastPos.squaredDistanceTo(mc.player.getPos()) < 0.03) {
                 if (stuckSince == 0) stuckSince = now;
                 else if (now - stuckSince > SRSettings.stuckMs) {
                     index = Math.min(index + 1, path.size());
@@ -83,18 +86,18 @@ public class PathExecutor {
             lastMoveCheck = now;
         }
 
-        lookToward(mc, dest.x, dest.y + 0.6, dest.z);
+        lookToward(mc, dest.x, dest.y + 0.5, dest.z);
 
         press(mc.options.forwardKey, true);
         press(mc.options.backKey, false);
         press(mc.options.leftKey, false);
         press(mc.options.rightKey, false);
-        press(mc.options.sprintKey, SRSettings.allowSprint && SRSettings.sprint && horiz > 1.5);
+        press(mc.options.sprintKey, SRSettings.allowSprint && SRSettings.sprint && horiz > 1.8);
 
-        boolean jump = (dy > 0.4 && mc.player.isOnGround())
+        boolean jump = (dy > 0.35 && mc.player.isOnGround())
                 || (mc.player.horizontalCollision && mc.player.isOnGround());
         press(mc.options.jumpKey, jump);
-        press(mc.options.sneakKey, dy < -1.5 && horiz < 1.2);
+        press(mc.options.sneakKey, dy < -1.8 && horiz < 1.0);
     }
 
     private void lookToward(MinecraftClient mc, double x, double y, double z) {
@@ -105,7 +108,7 @@ public class PathExecutor {
         double horiz = Math.sqrt(dx * dx + dz * dz);
         float yaw = (float) (MathHelper.atan2(dz, dx) * (180.0 / Math.PI)) - 90f;
         float pitch = (float) (-(MathHelper.atan2(dy, horiz) * (180.0 / Math.PI)));
-        pitch = MathHelper.clamp(pitch, -55f, 55f);
+        pitch = MathHelper.clamp(pitch, -50f, 50f);
 
         float cy = mc.player.getYaw();
         float cp = mc.player.getPitch();
@@ -116,9 +119,7 @@ public class PathExecutor {
     }
 
     private void press(KeyBinding key, boolean down) {
-        try {
-            key.setPressed(down);
-        } catch (Exception ignored) {}
+        try { key.setPressed(down); } catch (Exception ignored) {}
     }
 
     private void releaseMovement(MinecraftClient mc) {

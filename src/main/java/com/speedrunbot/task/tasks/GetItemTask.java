@@ -2,21 +2,16 @@ package com.speedrunbot.task.tasks;
 
 import com.speedrunbot.path.SRBaritone;
 import com.speedrunbot.task.Task;
+import com.speedrunbot.util.InventoryHelper;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Identifier;
 
-/**
- * High-level #get — maps common items to mine targets (AltoClef catalogue lite).
- */
+/** High-level #get — catalogue maps items → mine tasks. */
 public class GetItemTask extends Task {
 
     private final String itemName;
     private final int count;
-    private Task child;
+    private boolean childSpawned;
 
     public GetItemTask(String itemName, int count) {
         this.itemName = itemName.toLowerCase().replace("minecraft:", "");
@@ -24,26 +19,22 @@ public class GetItemTask extends Task {
     }
 
     @Override
-    protected void onStart(MinecraftClient mc, SRBaritone srb) {
-        child = resolve();
-    }
-
-    @Override
     protected Task onTick(MinecraftClient mc, SRBaritone srb) {
         if (isFinished(mc, srb)) return null;
-        if (child == null) child = resolve();
-        return child;
+        if (childSpawned) return null; // subtask already running / finished cycle
+        childSpawned = true;
+        return resolve();
     }
 
     private Task resolve() {
         return switch (itemName) {
             case "oak_log", "log", "logs", "wood" -> new MineCountTask("oak_log", count);
-            case "cobblestone", "stone" -> new MineCountTask("stone", count);
+            case "cobblestone", "cobble", "stone" -> new MineCountTask("stone", count);
             case "coal" -> new MineCountTask("coal_ore", count);
             case "raw_iron", "iron_ore" -> new MineCountTask("iron_ore", count);
-            case "iron_ingot", "iron" -> new MineCountTask("iron_ore", Math.max(count, count)); // smelt later
+            case "iron_ingot", "iron" -> new MineCountTask("iron_ore", count);
             case "diamond", "diamonds" -> new MineCountTask("diamond_ore", count);
-            case "gold_ingot", "raw_gold" -> new MineCountTask("gold_ore", count);
+            case "gold_ingot", "raw_gold", "gold" -> new MineCountTask("gold_ore", count);
             case "dirt" -> new MineCountTask("dirt", count);
             case "sand" -> new MineCountTask("sand", count);
             default -> new MineCountTask(itemName, count);
@@ -56,30 +47,16 @@ public class GetItemTask extends Task {
     }
 
     private int countOwned(MinecraftClient mc) {
-        if (mc.player == null) return 0;
-        Item target = resolveItem();
-        if (target == null) return 0;
-        int n = 0;
-        for (int i = 0; i < mc.player.getInventory().size(); i++) {
-            ItemStack s = mc.player.getInventory().getStack(i);
-            if (s.isOf(target)) n += s.getCount();
-            // accept raw + ingot for iron
-            if ((itemName.contains("iron")) && (s.isOf(Items.RAW_IRON) || s.isOf(Items.IRON_INGOT) || s.isOf(Items.IRON_ORE))) {
-                n += s.getCount();
-            }
-            if (itemName.contains("diamond") && s.isOf(Items.DIAMOND)) n += s.getCount();
-        }
-        return n;
-    }
-
-    private Item resolveItem() {
-        Identifier id = Identifier.tryParse("minecraft:" + itemName);
-        if (id != null && Registries.ITEM.containsId(id)) return Registries.ITEM.get(id);
         return switch (itemName) {
-            case "wood", "log", "logs" -> Items.OAK_LOG;
-            case "iron" -> Items.IRON_INGOT;
-            case "diamonds" -> Items.DIAMOND;
-            default -> null;
+            case "oak_log", "log", "logs", "wood" -> InventoryHelper.countLogs(mc);
+            case "iron", "iron_ingot", "raw_iron", "iron_ore" -> InventoryHelper.countIronProgress(mc);
+            case "diamond", "diamonds" -> InventoryHelper.countDiamonds(mc);
+            case "cobblestone", "cobble" -> InventoryHelper.count(mc, Items.COBBLESTONE);
+            case "coal" -> InventoryHelper.count(mc, Items.COAL) + InventoryHelper.count(mc, Items.CHARCOAL);
+            default -> {
+                var item = InventoryHelper.item(itemName);
+                yield item != null ? InventoryHelper.count(mc, item) : 0;
+            }
         };
     }
 

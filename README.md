@@ -1,29 +1,30 @@
-# Speedrun-Bot v1.5.0
+# Speedrun-Bot v1.5.1
 
-**Minecraft 1.21.11** · SRBaritone pathfinder · **AltoClef-inspired task system**
-
-Inspired by [AltoClef](https://github.com/AltoClef/altoclef) architecture (tasks + background chains), implemented on our own pathfinder — no Baritone jar required.
+Fabric **Minecraft 1.21.11** · SRBaritone · AltoClef-style tasks  
+Polished pathing, inventory counting, task lifecycle, HUD.
 
 ---
 
-## Architecture (from AltoClef ideas)
+## Install
 
-| Layer | Role |
-|-------|------|
-| **SRBaritone** | A* path + dig + `#start` |
-| **Task** | Subtask tree (`Get` → `Mine`) |
-| **TaskRunner** | One user task at a time |
-| **FoodChain** | Auto-eat when hungry |
-| **UnstuckChain** | Jump / turn when stuck |
-| **MobDefenseChain** | Hit nearby hostiles |
+1. Fabric Loader **1.21.11** + Fabric API  
+2. Build:
+   ```bash
+   git fetch origin && git reset --hard origin/main
+   ./gradlew clean build --no-daemon
+   ```
+3. `build/libs/speedrun-bot-1.5.1.jar` → `mods/`
+
+Java **21** required.
 
 ---
 
 ## Commands
 
+### Path / tasks (`#`)
 ```text
-#start / #stop / #pause / #resume
-#goto 100 64 200
+#start  #stop  #pause  #resume
+#goto <x> <y> <z>
 #mine iron_ore 12
 #get iron 16
 #get diamond 5
@@ -31,21 +32,23 @@ Inspired by [AltoClef](https://github.com/AltoClef/altoclef) architecture (tasks
 #thisway 80
 #task
 #help
+```
 
-.sr start   (Any% phase pipeline)
+### Speedrun pipeline
+```text
+.sr start | stop | skip | status
 ```
 
 ---
 
-## Build (1.21.11)
+## What’s polished in 1.5.1
 
-```bash
-git fetch origin && git reset --hard origin/main
-./gradlew clean build --no-daemon
-```
-
-Java 21 · Fabric API for 1.21.11
+- Task subtask lifecycle (no stuck/recreate loops)
+- `InventoryHelper` — correct iron/log/diamond counts
+- Mine tasks finish on drops (raw iron, cobble, etc.)
+- Path executor pauses in GUIs; better stuck recovery
+- Cleaner HUD for 1.21.11
 
 ---
 
-**Version:** 1.5.0  
+**Repo:** https://github.com/barnesjayren0-sudo/Speedrun-Bot  

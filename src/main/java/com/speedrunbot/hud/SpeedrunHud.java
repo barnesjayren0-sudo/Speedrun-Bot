@@ -14,16 +14,32 @@ public final class SpeedrunHud {
     public static void render(DrawContext ctx, SpeedrunController controller, SRBaritone srb, TaskRunner tasks) {
         if (controller == null) return;
         MinecraftClient mc = MinecraftClient.getInstance();
-        int x = 4, y = 4;
-        ctx.fill(x, y, x + 200, y + 52, 0x99000000);
-        ctx.drawTextWithShadow(mc.textRenderer, "§6SR §fBot §8v" + SpeedrunBotMod.VERSION, x + 4, y + 4, 0xFFFFFF);
-        ctx.drawTextWithShadow(mc.textRenderer, "§7Phase: §e" + controller.getPhase().label, x + 4, y + 16, 0xFFFFFF);
-        String path = srb != null && srb.isPathing() ? "§apath" : "§8—";
+        int x = 4;
+        int y = 4;
+        int w = 210;
+        int h = 54;
+
+        ctx.fill(x, y, x + w, y + h, 0xAA101018);
+        ctx.fill(x, y, x + 3, y + h, 0xFF55CCFF);
+
         ctx.drawTextWithShadow(mc.textRenderer,
-                path + " §8| §7" + (srb != null ? srb.getStatus() : ""),
-                x + 4, y + 28, 0xFFFFFF);
-        String task = tasks != null ? tasks.statusLine() : "";
-        if (task.length() > 28) task = task.substring(0, 28) + "…";
-        ctx.drawTextWithShadow(mc.textRenderer, "§bTask: §f" + task, x + 4, y + 40, 0xFFFFFF);
+                "§bSR§fBot §8v" + SpeedrunBotMod.VERSION + " §8· §71.21.11",
+                x + 8, y + 5, 0xFFFFFF);
+
+        String phase = controller.isRunning()
+                ? "§a● §e" + controller.getPhase().label
+                : "§8○ §7" + controller.getPhase().label;
+        ctx.drawTextWithShadow(mc.textRenderer, phase, x + 8, y + 17, 0xFFFFFF);
+
+        String srbLine = "§7path ";
+        if (srb != null) {
+            srbLine += srb.isPathing() ? "§aON" : "§8off";
+            srbLine += " §8· §f" + srb.getStatus();
+        }
+        ctx.drawTextWithShadow(mc.textRenderer, srbLine, x + 8, y + 29, 0xFFFFFF);
+
+        String task = tasks != null ? tasks.statusLine() : "idle";
+        if (task.length() > 32) task = task.substring(0, 32) + "…";
+        ctx.drawTextWithShadow(mc.textRenderer, "§b› §f" + task, x + 8, y + 41, 0xFFFFFF);
     }
 }
