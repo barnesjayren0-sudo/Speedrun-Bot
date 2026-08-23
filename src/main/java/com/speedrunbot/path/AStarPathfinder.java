@@ -8,23 +8,13 @@ import net.minecraft.world.World;
 
 import java.util.*;
 
-/**
- * A* pathfinder tuned for Minecraft 1.21.11 client worlds.
- */
 public final class AStarPathfinder {
 
     private static final int[][] DIRS = {
-            // cardinal
             {1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1},
-            // diagonal ground
             {1, 0, 1}, {1, 0, -1}, {-1, 0, 1}, {-1, 0, -1},
-            // up 1 (step / jump)
-            {0, 1, 0},
-            {1, 1, 0}, {-1, 1, 0}, {0, 1, 1}, {0, 1, -1},
-            // down 1
-            {0, -1, 0},
-            {1, -1, 0}, {-1, -1, 0}, {0, -1, 1}, {0, -1, -1},
-            // down 2–3 (safe-ish drops)
+            {0, 1, 0}, {1, 1, 0}, {-1, 1, 0}, {0, 1, 1}, {0, 1, -1},
+            {0, -1, 0}, {1, -1, 0}, {-1, -1, 0}, {0, -1, 1}, {0, -1, -1},
             {0, -2, 0}, {1, -2, 0}, {-1, -2, 0}, {0, -2, 1}, {0, -2, -1},
             {0, -3, 0},
     };
@@ -73,8 +63,7 @@ public final class AStarPathfinder {
                 int nz = cur.z + d[2];
                 if (ny < bottom + 1 || ny >= top - 1) continue;
                 if (!isWalkable(world, nx, ny, nz)) continue;
-                // don't fall more than 3 without path support
-                if (d[1] <= -2 && !hasGroundNearby(world, nx, ny, nz)) continue;
+                if (d[1] <= -2 && !solidGround(world.getBlockState(new BlockPos(nx, ny - 1, nz)))) continue;
 
                 long key = BlockKeys.pack(nx, ny, nz);
                 if (closed.contains(key)) continue;
@@ -99,15 +88,10 @@ public final class AStarPathfinder {
     }
 
     private static double cost(int[] d) {
-        double c = 1.0;
-        if (d[0] != 0 && d[2] != 0) c = 1.414;
-        if (d[1] > 0) c += 1.2;
-        if (d[1] < 0) c += 0.3 * (-d[1]);
+        double c = (d[0] != 0 && d[2] != 0) ? 1.414 : 1.0;
+        if (d[1] > 0) c += 1.15;
+        if (d[1] < 0) c += 0.25 * (-d[1]);
         return c;
-    }
-
-    private static boolean hasGroundNearby(World world, int x, int y, int z) {
-        return solidGround(world.getBlockState(new BlockPos(x, y - 1, z)));
     }
 
     private static List<BlockPos> reconstruct(PathNode end) {
@@ -118,18 +102,15 @@ public final class AStarPathfinder {
         return path;
     }
 
-    /** Player feet can stand at (x,y,z). */
     public static boolean isWalkable(World world, int x, int y, int z) {
         BlockPos feet = new BlockPos(x, y, z);
         BlockPos head = feet.up();
         BlockPos below = feet.down();
-
         BlockState atFeet = world.getBlockState(feet);
         BlockState atHead = world.getBlockState(head);
         BlockState atBelow = world.getBlockState(below);
 
         if (isPassable(atFeet) && isPassable(atHead) && solidGround(atBelow)) return true;
-        // swimming
         return atFeet.isOf(Blocks.WATER) && isPassable(atHead);
     }
 
@@ -137,9 +118,9 @@ public final class AStarPathfinder {
         if (s.isAir()) return true;
         if (s.isOf(Blocks.WATER)) return true;
         if (s.isOf(Blocks.SHORT_GRASS) || s.isOf(Blocks.TALL_GRASS)) return true;
-        if (s.isOf(Blocks.SNOW) || s.isOf(Blocks.FERN) || s.isOf(Blocks.LARGE_FERN)) return true;
+        if (s.isOf(Blocks.FERN) || s.isOf(Blocks.LARGE_FERN) || s.isOf(Blocks.SNOW)) return true;
         if (s.isOf(Blocks.TORCH) || s.isOf(Blocks.WALL_TORCH) || s.isOf(Blocks.LANTERN)) return true;
-        if (s.isOf(Blocks.COBWEB)) return true;
+        if (s.isOf(Blocks.COBWEB) || s.isOf(Blocks.VINE) || s.isOf(Blocks.GLOW_LICHEN)) return true;
         return !s.blocksMovement();
     }
 

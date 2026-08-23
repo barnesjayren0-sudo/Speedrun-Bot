@@ -1,6 +1,7 @@
 package com.speedrunbot.task;
 
 import com.speedrunbot.path.SRBaritone;
+import com.speedrunbot.path.SRSettings;
 import com.speedrunbot.task.chains.FoodChain;
 import com.speedrunbot.task.chains.MobDefenseChain;
 import com.speedrunbot.task.chains.UnstuckChain;
@@ -32,11 +33,13 @@ public class TaskRunner {
     public void tick(MinecraftClient mc, SRBaritone srb) {
         if (mc.player == null) return;
 
-        food.tick(mc, srb);
-        if (mobs.tickInterrupt(mc, srb)) {
+        if (SRSettings.foodChain) food.tick(mc, srb);
+
+        if (SRSettings.mobDefense && mobs.tickInterrupt(mc, srb)) {
             return;
         }
-        unstuck.tick(mc, srb);
+
+        if (SRSettings.unstuckChain) unstuck.tick(mc, srb);
 
         if (userTask != null) {
             if (userTask.isFinished(mc, srb) || userTask.isStopped()) {

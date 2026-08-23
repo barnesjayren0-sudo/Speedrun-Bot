@@ -13,7 +13,6 @@ import net.minecraft.util.math.Vec3d;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Custom pathfinder controller for MC 1.21.11 — #start #goto #mine */
 public class SRBaritone {
 
     private final PathExecutor executor = new PathExecutor();
@@ -23,7 +22,9 @@ public class SRBaritone {
     private String status = "idle";
     private final List<Block> mineBlocks = new ArrayList<>();
     private long lastRepath;
+    private long lastChat;
     private BlockPos mineFocus;
+    private int emptyPathStreak;
 
     public void tick(MinecraftClient mc) {
         if (mc.player == null || mc.world == null) return;
@@ -34,13 +35,16 @@ public class SRBaritone {
             return;
         }
 
+        if (currentGoal != null && currentGoal.isInGoal(
+                mc.player.getBlockX(), mc.player.getBlockY(), mc.player.getBlockZ())) {
+            status = "arrived";
+            running = false;
+            executor.clear();
+            msg(mc, "§aArrived");
+            return;
+        }
+
         if (!executor.isActive() && currentGoal != null) {
-            if (currentGoal.isInGoal(mc.player.getBlockPos())) {
-                status = "arrived";
-                running = false;
-                msg(mc, "§aArrived");
-                return;
-            }
             if (System.currentTimeMillis() - lastRepath > SRSettings.repathMs) {
                 repath(mc);
             }
@@ -58,43 +62,55 @@ public class SRBaritone {
         }
 
         if (mineFocus == null) {
-            status = "mine: none in range";
+            status = "mine: search";
             executor.clear();
+            // wander slightly forward to load new chunks
+            if (System.currentTimeMillis() - lastRepath > 5000) {
+                float yaw = mc.player.getYaw();
+                double rad = Math.toRadians(yaw);
+                int tx = player.getX() + (int) Math.round(-Math.sin(rad) * 24);
+                int tz = player.getZ() + (int) Math.round(Math.cos(rad) * 24);
+                currentGoal = new GoalXZ(tx, tz);
+                repath(mc);
+                lastRepath = System.currentTimeMillis();
+            }
             return;
         }
 
         double dist = mc.player.getEyePos().distanceTo(Vec3d.ofCenter(mineFocus));
-        if (dist <= 4.5) {
+        if (dist <= 4.2) {
             status = "mine: dig";
             executor.clear();
             lookAt(mc, mineFocus);
-            mc.options.attackKey.setPressed(true);
+            try {
+                mc.options.attackKey.setPressed(true);
+            } catch (Exception ignored) {}
             if (mc.world.getBlockState(mineFocus).isAir()) {
-                mc.options.attackKey.setPressed(false);
+                try { mc.options.attackKey.setPressed(false); } catch (Exception ignored) {}
                 mineFocus = null;
             }
             return;
         }
 
-        try {
-            mc.options.attackKey.setPressed(false);
-        } catch (Exception ignored) {}
+        try { mc.options.attackKey.setPressed(false); } catch (Exception ignored) {}
 
         if (!executor.isActive() || System.currentTimeMillis() - lastRepath > SRSettings.repathMs) {
-            currentGoal = new GoalBlock(mineFocus);
+            // stand near block
+            currentGoal = new GoalNear(mineFocus.getX(), mineFocus.getY(), mineFocus.getZ(), 2);
             List<BlockPos> path = AStarPathfinder.find(mc, currentGoal, SRSettings.maxPathNodes);
-            // path near the block, not inside it
-            if (!path.isEmpty()) {
-                path = new ArrayList<>(path);
-                // stop adjacent
-                BlockPos last = path.get(path.size() - 1);
-                if (last.equals(mineFocus) && path.size() > 1) {
-                    path.remove(path.size() - 1);
-                }
-            }
             executor.setPath(path);
             lastRepath = System.currentTimeMillis();
-            status = "mine: path " + path.size();
+            if (path.isEmpty()) {
+                emptyPathStreak++;
+                status = "mine: no path";
+                if (emptyPathStreak > 3) {
+                    mineFocus = null;
+                    emptyPathStreak = 0;
+                }
+            } else {
+                emptyPathStreak = 0;
+                status = "mine: path " + path.size();
+            }
         }
         executor.tick(mc);
     }
@@ -110,17 +126,17 @@ public class SRBaritone {
         BlockPos.Mutable m = new BlockPos.Mutable();
         BlockPos best = null;
         int bestD = Integer.MAX_VALUE;
-        int r = Math.min(range, 40);
+        int r = Math.min(range, 48);
+        int bottom = mc.world.getBottomY();
+        int top = bottom + mc.world.getHeight();
+
         for (int dx = -r; dx <= r; dx++) {
-            for (int dy = -20; dy <= 20; dy++) {
+            for (int dy = -24; dy <= 24; dy++) {
                 for (int dz = -r; dz <= r; dz++) {
-                    int x = origin.getX() + dx;
                     int y = origin.getY() + dy;
-                    int z = origin.getZ() + dz;
-                    if (y < mc.world.getBottomY() || y >= mc.world.getBottomY() + mc.world.getHeight()) continue;
-                    m.set(x, y, z);
-                    BlockState st = mc.world.getBlockState(m);
-                    if (!matchesMine(st)) continue;
+                    if (y < bottom || y >= top) continue;
+                    m.set(origin.getX() + dx, y, origin.getZ() + dz);
+                    if (!matchesMine(mc.world.getBlockState(m))) continue;
                     int d = Math.abs(dx) + Math.abs(dy) + Math.abs(dz);
                     if (d < bestD) {
                         bestD = d;
@@ -139,10 +155,8 @@ public class SRBaritone {
         double dy = dest.y - eyes.y;
         double dz = dest.z - eyes.z;
         double horiz = Math.sqrt(dx * dx + dz * dz);
-        float yaw = (float) (Math.atan2(dz, dx) * (180 / Math.PI)) - 90f;
-        float pitch = (float) (-(Math.atan2(dy, horiz) * (180 / Math.PI)));
-        mc.player.setYaw(yaw);
-        mc.player.setPitch(Math.max(-90, Math.min(90, pitch)));
+        mc.player.setYaw((float) (Math.atan2(dz, dx) * (180 / Math.PI)) - 90f);
+        mc.player.setPitch((float) Math.max(-90, Math.min(90, -(Math.atan2(dy, horiz) * (180 / Math.PI)))));
     }
 
     public void setGoalAndPath(MinecraftClient mc, Goal goal) {
@@ -151,9 +165,10 @@ public class SRBaritone {
         this.mineFocus = null;
         this.paused = false;
         this.running = true;
+        this.emptyPathStreak = 0;
         repath(mc);
         status = "pathing";
-        msg(mc, "§aGoal §f" + goal + " §7(" + executor.remaining() + " nodes)");
+        msg(mc, "§aGoal §f" + goal + " §7(" + executor.remaining() + ")");
     }
 
     private void repath(MinecraftClient mc) {
@@ -163,8 +178,10 @@ public class SRBaritone {
         lastRepath = System.currentTimeMillis();
         if (path.isEmpty()) {
             status = "no path";
+            emptyPathStreak++;
             msg(mc, "§cNo path");
         } else {
+            emptyPathStreak = 0;
             status = "path " + path.size();
         }
     }
@@ -183,10 +200,9 @@ public class SRBaritone {
         mineBlocks.clear();
         mineFocus = null;
         currentGoal = null;
+        emptyPathStreak = 0;
         executor.clear();
-        try {
-            mc.options.attackKey.setPressed(false);
-        } catch (Exception ignored) {}
+        try { mc.options.attackKey.setPressed(false); } catch (Exception ignored) {}
         status = "stopped";
         msg(mc, "§c#stop");
     }
@@ -194,9 +210,7 @@ public class SRBaritone {
     public void pause(MinecraftClient mc) {
         paused = true;
         executor.clear();
-        try {
-            mc.options.attackKey.setPressed(false);
-        } catch (Exception ignored) {}
+        try { mc.options.attackKey.setPressed(false); } catch (Exception ignored) {}
         status = "paused";
         msg(mc, "§e#pause");
     }
@@ -213,28 +227,24 @@ public class SRBaritone {
         setGoalAndPath(mc, new GoalXZ(x, z));
     }
 
+    public void gotoNear(MinecraftClient mc, int x, int y, int z, int r) {
+        setGoalAndPath(mc, new GoalNear(x, y, z, r));
+    }
+
     public void mine(MinecraftClient mc, String blockId) {
         mineBlocks.clear();
         mineFocus = null;
+        emptyPathStreak = 0;
         addMineBlock(blockId);
-        // 1.21 deepslate variants
         if (!blockId.contains("deepslate") && blockId.endsWith("_ore")) {
             addMineBlock("deepslate_" + blockId);
         }
-        if (blockId.equals("iron_ore")) addMineBlock("deepslate_iron_ore");
-        if (blockId.equals("diamond_ore")) addMineBlock("deepslate_diamond_ore");
-        if (blockId.equals("gold_ore")) addMineBlock("deepslate_gold_ore");
-        if (blockId.equals("coal_ore")) addMineBlock("deepslate_coal_ore");
-        if (blockId.equals("oak_log")) {
-            addMineBlock("birch_log");
-            addMineBlock("spruce_log");
-            addMineBlock("jungle_log");
-            addMineBlock("acacia_log");
-            addMineBlock("dark_oak_log");
-            addMineBlock("mangrove_log");
-            addMineBlock("cherry_log");
+        if (blockId.equals("oak_log") || blockId.equals("log") || blockId.equals("logs")) {
+            for (String log : List.of("oak_log", "birch_log", "spruce_log", "jungle_log",
+                    "acacia_log", "dark_oak_log", "mangrove_log", "cherry_log")) {
+                addMineBlock(log);
+            }
         }
-
         if (mineBlocks.isEmpty()) {
             msg(mc, "§cUnknown block: " + blockId);
             return;
@@ -242,14 +252,13 @@ public class SRBaritone {
         running = true;
         paused = false;
         status = "mine";
-        msg(mc, "§a#mine §f" + blockId + " §7(+variants)");
+        msg(mc, "§a#mine §f" + blockId);
     }
 
     private void addMineBlock(String id) {
         String full = id.contains(":") ? id : "minecraft:" + id;
         Identifier ident = Identifier.tryParse(full);
-        if (ident == null) return;
-        if (!Registries.BLOCK.containsId(ident)) return;
+        if (ident == null || !Registries.BLOCK.containsId(ident)) return;
         Block b = Registries.BLOCK.get(ident);
         if (b != Blocks.AIR && !mineBlocks.contains(b)) mineBlocks.add(b);
     }
@@ -260,8 +269,10 @@ public class SRBaritone {
     public Goal getGoal() { return currentGoal; }
 
     private void msg(MinecraftClient mc, String s) {
-        if (mc.player != null) {
-            mc.player.sendMessage(Text.literal("§8[§bSRB§8] " + s), false);
-        }
+        if (mc.player == null) return;
+        long now = System.currentTimeMillis();
+        if (!SRSettings.chatSpam && now - lastChat < 400) return;
+        lastChat = now;
+        mc.player.sendMessage(Text.literal("§8[§bSRB§8] " + s), false);
     }
 }

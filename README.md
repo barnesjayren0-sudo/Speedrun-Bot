@@ -1,54 +1,53 @@
-# Speedrun-Bot v1.5.1
+# Speedrun-Bot v1.6.0
 
-Fabric **Minecraft 1.21.11** · SRBaritone · AltoClef-style tasks  
-Polished pathing, inventory counting, task lifecycle, HUD.
+**Minecraft 1.21.11** · Fabric · Java 21  
+Custom **SRBaritone** + AltoClef-style **tasks** · polished movement, mining, chains.
 
 ---
 
-## Install
+## Build
 
-1. Fabric Loader **1.21.11** + Fabric API  
-2. Build:
-   ```bash
-   git fetch origin && git reset --hard origin/main
-   ./gradlew clean build --no-daemon
-   ```
-3. `build/libs/speedrun-bot-1.5.1.jar` → `mods/`
+```bash
+git fetch origin && git reset --hard origin/main
+gradle wrapper --gradle-version 8.10.2   # once if no gradlew
+./gradlew clean build --no-daemon
+```
 
-Java **21** required.
+Jar → `build/libs/speedrun-bot-1.6.0.jar` + Fabric API in `mods/`.
 
 ---
 
 ## Commands
 
-### Path / tasks (`#`)
 ```text
-#start  #stop  #pause  #resume
-#goto <x> <y> <z>
+#start / #stop / #pause / #resume
+#goto x y z
 #mine iron_ore 12
 #get iron 16
-#get diamond 5
 #get oak_log 10
 #thisway 80
 #task
+#set food on|off
+#set mobs on|off
+#set unstuck on|off
+#set sprint on|off
 #help
-```
 
-### Speedrun pipeline
-```text
 .sr start | stop | skip | status
 ```
 
 ---
 
-## What’s polished in 1.5.1
+## v1.6.0 polish
 
-- Task subtask lifecycle (no stuck/recreate loops)
-- `InventoryHelper` — correct iron/log/diamond counts
-- Mine tasks finish on drops (raw iron, cobble, etc.)
-- Path executor pauses in GUIs; better stuck recovery
-- Cleaner HUD for 1.21.11
+- `GoalNear` for mining approach
+- Empty-path recovery + chunk wander while mining
+- Task **timeouts** (3 min default)
+- Toggleable food / mob / unstuck chains
+- Less chat spam
+- Stronger A* costs & passable blocks
+- Cleaner HUD
 
 ---
 
-**Repo:** https://github.com/barnesjayren0-sudo/Speedrun-Bot  
+Not full AltoClef — focused path + gather bot for 1.21.11.

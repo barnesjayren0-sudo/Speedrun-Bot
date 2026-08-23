@@ -14,32 +14,27 @@ public final class SpeedrunHud {
     public static void render(DrawContext ctx, SpeedrunController controller, SRBaritone srb, TaskRunner tasks) {
         if (controller == null) return;
         MinecraftClient mc = MinecraftClient.getInstance();
-        int x = 4;
-        int y = 4;
-        int w = 210;
-        int h = 54;
+        int x = 4, y = 4, w = 220, h = 56;
 
-        ctx.fill(x, y, x + w, y + h, 0xAA101018);
-        ctx.fill(x, y, x + 3, y + h, 0xFF55CCFF);
+        ctx.fill(x, y, x + w, y + h, 0xB00C0C14);
+        ctx.fill(x, y, x + 3, y + h, 0xFF3DDCFF);
 
         ctx.drawTextWithShadow(mc.textRenderer,
-                "§bSR§fBot §8v" + SpeedrunBotMod.VERSION + " §8· §71.21.11",
+                "§bSR§fBot §8" + SpeedrunBotMod.VERSION + " §8· §71.21.11",
                 x + 8, y + 5, 0xFFFFFF);
 
         String phase = controller.isRunning()
                 ? "§a● §e" + controller.getPhase().label
-                : "§8○ §7" + controller.getPhase().label;
-        ctx.drawTextWithShadow(mc.textRenderer, phase, x + 8, y + 17, 0xFFFFFF);
+                : "§8○ §7idle";
+        ctx.drawTextWithShadow(mc.textRenderer, phase, x + 8, y + 18, 0xFFFFFF);
 
-        String srbLine = "§7path ";
-        if (srb != null) {
-            srbLine += srb.isPathing() ? "§aON" : "§8off";
-            srbLine += " §8· §f" + srb.getStatus();
-        }
-        ctx.drawTextWithShadow(mc.textRenderer, srbLine, x + 8, y + 29, 0xFFFFFF);
+        String path = (srb != null && srb.isPathing()) ? "§aPATH" : "§8path";
+        String st = srb != null ? srb.getStatus() : "";
+        if (st.length() > 18) st = st.substring(0, 18);
+        ctx.drawTextWithShadow(mc.textRenderer, path + " §8· §f" + st, x + 8, y + 30, 0xFFFFFF);
 
         String task = tasks != null ? tasks.statusLine() : "idle";
-        if (task.length() > 32) task = task.substring(0, 32) + "…";
-        ctx.drawTextWithShadow(mc.textRenderer, "§b› §f" + task, x + 8, y + 41, 0xFFFFFF);
+        if (task.length() > 34) task = task.substring(0, 34) + "…";
+        ctx.drawTextWithShadow(mc.textRenderer, "§b› §f" + task, x + 8, y + 42, 0xFFFFFF);
     }
 }
