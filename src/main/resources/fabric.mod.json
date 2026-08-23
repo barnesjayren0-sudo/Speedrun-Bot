@@ -3,29 +3,22 @@
   "id": "speedrunbot",
   "version": "${version}",
   "name": "${mod_name}",
-  "description": "A Minecraft speedrunning bot using Baritone",
-  "authors": [
-    "SpeedrunBot"
-  ],
+  "description": "Any% speedrun assistant — goal pipeline + Baritone bridge (drop Baritone jar later)",
+  "authors": ["barnesjayren0-sudo"],
   "contact": {
     "homepage": "https://github.com/barnesjayren0-sudo/Speedrun-Bot"
   },
   "license": "MIT",
-  "environment": "*",
+  "environment": "client",
   "entrypoints": {
-    "main": [
-      "com.speedrunbot.SpeedrunBotMod"
-    ],
-    "client": [
-      "com.speedrunbot.SpeedrunBotClient"
-    ]
+    "main": ["com.speedrunbot.SpeedrunBotMod"],
+    "client": ["com.speedrunbot.SpeedrunBotClient"]
   },
-  "mixins": [
-    "speedrunbot.mixins.json"
-  ],
+  "mixins": ["speedrunbot.mixins.json"],
   "depends": {
     "fabricloader": ">=0.14.21",
-    "fabric": "*",
-    "minecraft": "1.20.1"
+    "fabric-api": "*",
+    "minecraft": "~1.20.1",
+    "java": ">=17"
   }
 }

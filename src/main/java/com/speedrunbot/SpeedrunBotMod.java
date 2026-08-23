@@ -4,15 +4,14 @@ import net.fabricmc.api.ModInitializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Speedrun Bot main mod entry point for server/common initialization.
- */
 public class SpeedrunBotMod implements ModInitializer {
+
     public static final String MOD_ID = "speedrunbot";
+    public static final String VERSION = "1.1.0";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
     @Override
     public void onInitialize() {
-        LOGGER.info("Speedrun Bot initializing...");
+        LOGGER.info("Speedrun-Bot {} common init", VERSION);
     }
 }
