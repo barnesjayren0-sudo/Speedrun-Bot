@@ -7,11 +7,11 @@ import org.slf4j.LoggerFactory;
 public class SpeedrunBotMod implements ModInitializer {
 
     public static final String MOD_ID = "speedrunbot";
-    public static final String VERSION = "1.3.0";
+    public static final String VERSION = "1.4.0";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
     @Override
     public void onInitialize() {
-        LOGGER.info("Speedrun-Bot {} — custom SRBaritone pathfinder", VERSION);
+        LOGGER.info("Speedrun-Bot {} for Minecraft 1.21.11 (SRBaritone)", VERSION);
     }
 }

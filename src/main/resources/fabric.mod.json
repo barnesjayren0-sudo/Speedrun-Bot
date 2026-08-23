@@ -3,7 +3,7 @@
   "id": "speedrunbot",
   "version": "${version}",
   "name": "${mod_name}",
-  "description": "Any% speedrun bot with built-in SRBaritone (#start #goto #mine #stop)",
+  "description": "Minecraft 1.21.11 Any% bot with built-in SRBaritone (#start #goto #mine)",
   "authors": ["barnesjayren0-sudo"],
   "contact": {
     "homepage": "https://github.com/barnesjayren0-sudo/Speedrun-Bot"

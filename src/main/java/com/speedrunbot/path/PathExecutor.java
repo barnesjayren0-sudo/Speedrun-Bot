@@ -9,29 +9,29 @@ import net.minecraft.util.math.Vec3d;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Walks a list of BlockPos by aiming + holding W / jump / sprint. */
 public class PathExecutor {
 
     private List<BlockPos> path = new ArrayList<>();
     private int index;
     private boolean active;
     private long stuckSince;
-    private double lastDist = Double.MAX_VALUE;
+    private Vec3d lastPos;
+    private long lastMoveCheck;
 
     public void setPath(List<BlockPos> path) {
         this.path = path != null ? new ArrayList<>(path) : new ArrayList<>();
-        this.index = 0;
+        this.index = this.path.size() > 1 ? 1 : 0;
         this.active = !this.path.isEmpty();
         this.stuckSince = 0;
-        this.lastDist = Double.MAX_VALUE;
-        if (this.path.size() > 1) this.index = 1; // skip current block
+        this.lastPos = null;
+        this.lastMoveCheck = 0;
     }
 
     public void clear() {
         path.clear();
         index = 0;
         active = false;
-        releaseKeys(MinecraftClient.getInstance());
+        releaseMovement(MinecraftClient.getInstance());
     }
 
     public boolean isActive() {
@@ -50,70 +50,69 @@ public class PathExecutor {
         }
 
         BlockPos target = path.get(index);
-        Vec3d eyes = mc.player.getEyePos();
-        Vec3d dest = new Vec3d(target.getX() + 0.5, target.getY() + 0.1, target.getZ() + 0.5);
-        double dist = eyes.distanceTo(dest);
+        Vec3d dest = new Vec3d(target.getX() + 0.5, target.getY(), target.getZ() + 0.5);
+        double dx = dest.x - mc.player.getX();
+        double dz = dest.z - mc.player.getZ();
+        double horiz = Math.sqrt(dx * dx + dz * dz);
+        double dy = target.getY() - mc.player.getY();
 
-        // reached node
-        if (dist < 0.85 || (Math.abs(mc.player.getX() - dest.x) < 0.6
-                && Math.abs(mc.player.getZ() - dest.z) < 0.6
-                && Math.abs(mc.player.getY() - target.getY()) < 1.2)) {
+        if (horiz < SRSettings.arriveDist && Math.abs(dy) < 1.25) {
             index++;
             stuckSince = 0;
-            lastDist = Double.MAX_VALUE;
-            if (index >= path.size()) {
-                clear();
-            }
+            if (index >= path.size()) clear();
             return;
         }
 
-        // stuck detection
-        if (dist >= lastDist - 0.01) {
-            if (stuckSince == 0) stuckSince = System.currentTimeMillis();
-            else if (System.currentTimeMillis() - stuckSince > 2500) {
-                // skip node or jump spam
-                index++;
+        long now = System.currentTimeMillis();
+        if (lastPos != null && now - lastMoveCheck > 400) {
+            double moved = lastPos.squaredDistanceTo(mc.player.getPos());
+            if (moved < 0.04) {
+                if (stuckSince == 0) stuckSince = now;
+                else if (now - stuckSince > SRSettings.stuckMs) {
+                    index = Math.min(index + 1, path.size());
+                    stuckSince = 0;
+                    press(mc.options.jumpKey, true);
+                }
+            } else {
                 stuckSince = 0;
-                press(mc.options.jumpKey, true);
-                return;
             }
-        } else {
-            stuckSince = 0;
+            lastPos = mc.player.getPos();
+            lastMoveCheck = now;
+        } else if (lastPos == null) {
+            lastPos = mc.player.getPos();
+            lastMoveCheck = now;
         }
-        lastDist = dist;
 
-        lookAt(mc, dest);
+        lookToward(mc, dest.x, dest.y + 0.6, dest.z);
 
         press(mc.options.forwardKey, true);
-        press(mc.options.sprintKey, true);
-
-        // jump if need up
-        boolean needJump = target.getY() > mc.player.getBlockY()
-                || mc.player.horizontalCollision;
-        press(mc.options.jumpKey, needJump && mc.player.isOnGround());
-
-        press(mc.options.sneakKey, false);
         press(mc.options.backKey, false);
         press(mc.options.leftKey, false);
         press(mc.options.rightKey, false);
+        press(mc.options.sprintKey, SRSettings.allowSprint && SRSettings.sprint && horiz > 1.5);
+
+        boolean jump = (dy > 0.4 && mc.player.isOnGround())
+                || (mc.player.horizontalCollision && mc.player.isOnGround());
+        press(mc.options.jumpKey, jump);
+        press(mc.options.sneakKey, dy < -1.5 && horiz < 1.2);
     }
 
-    private void lookAt(MinecraftClient mc, Vec3d dest) {
+    private void lookToward(MinecraftClient mc, double x, double y, double z) {
         Vec3d eyes = mc.player.getEyePos();
-        double dx = dest.x - eyes.x;
-        double dy = dest.y - eyes.y;
-        double dz = dest.z - eyes.z;
+        double dx = x - eyes.x;
+        double dy = y - eyes.y;
+        double dz = z - eyes.z;
         double horiz = Math.sqrt(dx * dx + dz * dz);
         float yaw = (float) (MathHelper.atan2(dz, dx) * (180.0 / Math.PI)) - 90f;
         float pitch = (float) (-(MathHelper.atan2(dy, horiz) * (180.0 / Math.PI)));
-        pitch = MathHelper.clamp(pitch, -60f, 60f);
+        pitch = MathHelper.clamp(pitch, -55f, 55f);
 
-        // smooth turn
         float cy = mc.player.getYaw();
         float cp = mc.player.getPitch();
         float dyaw = MathHelper.wrapDegrees(yaw - cy);
-        mc.player.setYaw(cy + dyaw * 0.45f);
-        mc.player.setPitch(cp + (pitch - cp) * 0.35f);
+        float s = SRSettings.lookSpeed;
+        mc.player.setYaw(cy + dyaw * s);
+        mc.player.setPitch(cp + (pitch - cp) * s);
     }
 
     private void press(KeyBinding key, boolean down) {
@@ -122,7 +121,7 @@ public class PathExecutor {
         } catch (Exception ignored) {}
     }
 
-    private void releaseKeys(MinecraftClient mc) {
+    private void releaseMovement(MinecraftClient mc) {
         if (mc == null || mc.options == null) return;
         press(mc.options.forwardKey, false);
         press(mc.options.backKey, false);
@@ -130,5 +129,6 @@ public class PathExecutor {
         press(mc.options.rightKey, false);
         press(mc.options.jumpKey, false);
         press(mc.options.sprintKey, false);
+        press(mc.options.sneakKey, false);
     }
 }
