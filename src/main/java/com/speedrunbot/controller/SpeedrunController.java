@@ -1,22 +1,19 @@
 package com.speedrunbot.controller;
 
 import com.speedrunbot.SpeedrunBotMod;
-import com.speedrunbot.baritone.BaritoneBridge;
 import com.speedrunbot.goal.PhaseHandler;
 import com.speedrunbot.goal.RunPhase;
 import com.speedrunbot.goal.phases.*;
+import com.speedrunbot.path.SRBaritone;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.Text;
 
 import java.util.EnumMap;
 import java.util.Map;
 
-/**
- * Any% phase pipeline. Advances when the active PhaseHandler completes.
- */
 public class SpeedrunController {
 
-    private final BaritoneBridge baritone;
+    private final SRBaritone srb;
     private final Map<RunPhase, PhaseHandler> handlers = new EnumMap<>(RunPhase.class);
 
     private boolean running;
@@ -25,8 +22,8 @@ public class SpeedrunController {
     private long phaseStartedMs;
     private long runStartedMs;
 
-    public SpeedrunController(BaritoneBridge baritone) {
-        this.baritone = baritone;
+    public SpeedrunController(SRBaritone srb) {
+        this.srb = srb;
         register(new WoodPhase());
         register(new StonePhase());
         register(new IronPhase());
@@ -47,17 +44,15 @@ public class SpeedrunController {
         running = true;
         runStartedMs = System.currentTimeMillis();
         setPhase(RunPhase.WOOD);
-        msg("§aRun started · phase WOOD");
+        msg("§aRun started");
     }
 
     public void stop() {
         running = false;
-        if (active != null) {
-            active.exit(MinecraftClient.getInstance(), baritone);
-        }
+        if (active != null) active.exit(MinecraftClient.getInstance(), srb);
         active = null;
         phase = RunPhase.IDLE;
-        baritone.cancel();
+        srb.stop(MinecraftClient.getInstance());
         msg("§cRun stopped");
     }
 
@@ -68,12 +63,12 @@ public class SpeedrunController {
 
     public void setPhase(RunPhase next) {
         MinecraftClient mc = MinecraftClient.getInstance();
-        if (active != null) active.exit(mc, baritone);
+        if (active != null) active.exit(mc, srb);
         phase = next;
         active = handlers.get(next);
         phaseStartedMs = System.currentTimeMillis();
         if (active != null) {
-            active.enter(mc, baritone);
+            active.enter(mc, srb);
             SpeedrunBotMod.LOGGER.info("Phase -> {}", next);
         }
         if (next == RunPhase.DONE) {
@@ -84,44 +79,28 @@ public class SpeedrunController {
 
     private void advance() {
         RunPhase n = phase.next();
-        msg("§eAdvance → " + n.label);
+        msg("§e→ " + n.label);
         setPhase(n);
     }
 
     public void tick(MinecraftClient mc) {
         if (!running || active == null) return;
         if (phase == RunPhase.DONE || phase == RunPhase.IDLE) return;
-
         try {
-            if (active.tick(mc, baritone)) {
-                advance();
-            }
+            if (active.tick(mc, srb)) advance();
         } catch (Exception e) {
             SpeedrunBotMod.LOGGER.error("Phase tick error", e);
         }
     }
 
-    public boolean isRunning() {
-        return running;
-    }
-
-    public RunPhase getPhase() {
-        return phase;
-    }
-
-    public long getPhaseElapsedMs() {
-        return System.currentTimeMillis() - phaseStartedMs;
-    }
-
+    public boolean isRunning() { return running; }
+    public RunPhase getPhase() { return phase; }
     public long getRunElapsedMs() {
-        if (runStartedMs == 0) return 0;
-        return System.currentTimeMillis() - runStartedMs;
+        return runStartedMs == 0 ? 0 : System.currentTimeMillis() - runStartedMs;
     }
 
     private void msg(String s) {
         MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.player != null) {
-            mc.player.sendMessage(Text.literal("§8[§6SR§8] " + s), false);
-        }
+        if (mc.player != null) mc.player.sendMessage(Text.literal("§8[§6SR§8] " + s), false);
     }
 }

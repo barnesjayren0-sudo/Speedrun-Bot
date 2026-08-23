@@ -1,9 +1,10 @@
 package com.speedrunbot;
 
-import com.speedrunbot.baritone.BaritoneBridge;
 import com.speedrunbot.command.CommandHandler;
 import com.speedrunbot.controller.SpeedrunController;
 import com.speedrunbot.hud.SpeedrunHud;
+import com.speedrunbot.path.HashCommand;
+import com.speedrunbot.path.SRBaritone;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.message.v1.ClientSendMessageEvents;
@@ -16,54 +17,47 @@ public class SpeedrunBotClient implements ClientModInitializer {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SpeedrunBotMod.MOD_ID);
 
+    private static SRBaritone srb;
     private static SpeedrunController controller;
-    private static BaritoneBridge baritone;
-    private static int hookRetry;
 
     @Override
     public void onInitializeClient() {
-        LOGGER.info("Speedrun-Bot client v{} (1.21.11)", SpeedrunBotMod.VERSION);
+        LOGGER.info("Speedrun-Bot v{} — SRBaritone (custom # commands)", SpeedrunBotMod.VERSION);
 
-        baritone = new BaritoneBridge();
-        baritone.tryHook();
-
-        controller = new SpeedrunController(baritone);
+        srb = new SRBaritone();
+        controller = new SpeedrunController(srb);
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            // Baritone may load after us — retry hook a few times
-            if (!baritone.isAvailable() && hookRetry < 200 && client.player != null) {
-                if (hookRetry % 40 == 0) baritone.tryHook();
-                hookRetry++;
-            }
             if (client.player == null || client.world == null) return;
+            srb.tick(client);
             controller.tick(client);
         });
 
-        // ONLY intercept .sr — leave # alone so normal Baritone chat control works
         ClientSendMessageEvents.ALLOW_CHAT.register(message -> {
+            // Our own Baritone-style #
+            if (message.startsWith("#")) {
+                HashCommand.tryHandle(message, srb);
+                return false; // don't send to server
+            }
             if (message.startsWith(".sr") || message.startsWith(".speedrun")) {
-                CommandHandler.handle(message, controller, baritone);
+                CommandHandler.handle(message, controller, srb);
                 return false;
             }
-            // #goto #mine #resume #stop etc → Baritone ExampleBaritoneControl
             return true;
         });
 
         HudRenderCallback.EVENT.register((context, tickCounter) -> {
             MinecraftClient mc = MinecraftClient.getInstance();
             if (mc.player == null || mc.options.hudHidden) return;
-            SpeedrunHud.render(context, controller, baritone);
+            SpeedrunHud.render(context, controller, srb);
         });
+    }
 
-        LOGGER.info("Baritone: {} | use # commands in chat for normal Baritone", 
-                baritone.isAvailable() ? "HOOKED" : "install baritone-fabric-1.21.11.jar in mods/");
+    public static SRBaritone getSrb() {
+        return srb;
     }
 
     public static SpeedrunController getController() {
         return controller;
-    }
-
-    public static BaritoneBridge getBaritone() {
-        return baritone;
     }
 }
