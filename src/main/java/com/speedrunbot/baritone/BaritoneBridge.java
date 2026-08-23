@@ -7,10 +7,9 @@ import org.slf4j.Logger;
 import java.lang.reflect.Method;
 
 /**
- * Reflective Baritone hook so the mod compiles without the Baritone jar.
- * When you add baritone (API + standalone) to mods/ or libs/, this auto-detects it.
- *
- * Later: replace reflection with real imports once your custom Baritone is in-repo.
+ * Reflective hook into official Baritone Fabric (1.21.11 jar).
+ * Install baritone-fabric-1.21.11.jar in mods/ — all normal # commands work from Baritone itself.
+ * This bridge is for the speedrun pipeline to call path/mine/cancel in code.
  */
 public class BaritoneBridge {
 
@@ -19,23 +18,21 @@ public class BaritoneBridge {
     private boolean available;
     private Object primaryBaritone;
     private Object customGoalProcess;
+    private Object commandManager;
     private Method setGoalAndPath;
-    private Method cancelEverything;
-    private Method isPathing;
+    private Method cmdExecute;
 
     public void tryHook() {
         available = false;
+        primaryBaritone = null;
         try {
             Class<?> api = Class.forName("baritone.api.BaritoneAPI");
-            Method getProvider = api.getMethod("getProvider");
-            Object provider = getProvider.invoke(null);
-            Method getPrimary = provider.getClass().getMethod("getPrimaryBaritone");
-            primaryBaritone = getPrimary.invoke(provider);
+            Object provider = api.getMethod("getProvider").invoke(null);
+            primaryBaritone = provider.getClass().getMethod("getPrimaryBaritone").invoke(provider);
 
-            Method getCustomGoal = primaryBaritone.getClass().getMethod("getCustomGoalProcess");
-            customGoalProcess = getCustomGoal.invoke(primaryBaritone);
+            customGoalProcess = primaryBaritone.getClass()
+                    .getMethod("getCustomGoalProcess").invoke(primaryBaritone);
 
-            // setGoalAndPath(Goal)
             for (Method m : customGoalProcess.getClass().getMethods()) {
                 if (m.getName().equals("setGoalAndPath") && m.getParameterCount() == 1) {
                     setGoalAndPath = m;
@@ -43,16 +40,20 @@ public class BaritoneBridge {
                 }
             }
 
-            Object pathingBehavior = primaryBaritone.getClass()
-                    .getMethod("getPathingBehavior").invoke(primaryBaritone);
-            cancelEverything = pathingBehavior.getClass().getMethod("cancelEverything");
-            isPathing = pathingBehavior.getClass().getMethod("isPathing");
+            commandManager = primaryBaritone.getClass()
+                    .getMethod("getCommandManager").invoke(primaryBaritone);
+            for (Method m : commandManager.getClass().getMethods()) {
+                if (m.getName().equals("execute")) {
+                    cmdExecute = m;
+                    break;
+                }
+            }
 
-            available = setGoalAndPath != null;
-            LOG.info("[BaritoneBridge] hooked successfully");
+            available = primaryBaritone != null;
+            LOG.info("[BaritoneBridge] hooked (Baritone present)");
         } catch (Throwable t) {
             available = false;
-            LOG.info("[BaritoneBridge] Baritone not found yet — install jar or supply custom build");
+            LOG.info("[BaritoneBridge] Baritone not in mods yet: {}", t.getMessage());
         }
     }
 
@@ -60,78 +61,81 @@ public class BaritoneBridge {
         return available;
     }
 
-    public boolean pathTo(BlockPos pos) {
-        if (!available || pos == null) return false;
+    /**
+ * Run a normal Baritone command string (without #).
+ * Examples: "goto 100 64 200", "mine diamond_ore", "stop", "resume", "path"
+ */
+    public boolean run(String commandWithoutHash) {
+        if (!available || commandManager == null || cmdExecute == null) return false;
         try {
-            Class<?> goalXZ = Class.forName("baritone.api.pathing.goals.GoalBlock");
-            Object goal = goalXZ.getConstructor(int.class, int.class, int.class)
-                    .newInstance(pos.getX(), pos.getY(), pos.getZ());
-            setGoalAndPath.invoke(customGoalProcess, goal);
-            return true;
+            String cmd = commandWithoutHash.startsWith("#")
+                    ? commandWithoutHash.substring(1).trim()
+                    : commandWithoutHash.trim();
+            // Alias: start → resume (Baritone has resume, not start)
+            if (cmd.equalsIgnoreCase("start")) {
+                cmd = "resume";
+            }
+            Class<?>[] pts = cmdExecute.getParameterTypes();
+            if (pts.length == 1 && pts[0] == String.class) {
+                cmdExecute.invoke(commandManager, cmd);
+                return true;
+            }
+            if (pts.length >= 1) {
+                Object[] args = new Object[pts.length];
+                args[0] = cmd;
+                cmdExecute.invoke(commandManager, args);
+                return true;
+            }
+            return false;
         } catch (Throwable t) {
-            LOG.warn("[BaritoneBridge] pathTo failed: {}", t.toString());
+            LOG.warn("[BaritoneBridge] run('{}') failed: {}", commandWithoutHash, t.toString());
             return false;
         }
+    }
+
+    public boolean pathTo(BlockPos pos) {
+        if (!available || pos == null) return false;
+        // Prefer chat-level goto so it behaves exactly like #goto
+        if (run("goto " + pos.getX() + " " + pos.getY() + " " + pos.getZ())) {
+            return true;
+        }
+        try {
+            Class<?> goalBlock = Class.forName("baritone.api.pathing.goals.GoalBlock");
+            Object goal = goalBlock.getConstructor(int.class, int.class, int.class)
+                    .newInstance(pos.getX(), pos.getY(), pos.getZ());
+            if (setGoalAndPath != null) {
+                setGoalAndPath.invoke(customGoalProcess, goal);
+                return true;
+            }
+        } catch (Throwable t) {
+            LOG.warn("[BaritoneBridge] pathTo failed: {}", t.toString());
+        }
+        return false;
     }
 
     public boolean pathToXZ(int x, int z) {
-        if (!available) return false;
-        try {
-            Class<?> goalXZ = Class.forName("baritone.api.pathing.goals.GoalXZ");
-            Object goal = goalXZ.getConstructor(int.class, int.class).newInstance(x, z);
-            setGoalAndPath.invoke(customGoalProcess, goal);
-            return true;
-        } catch (Throwable t) {
-            LOG.warn("[BaritoneBridge] pathToXZ failed: {}", t.toString());
-            return false;
-        }
+        return run("goto " + x + " " + z) || run("goto " + x + " ~ " + z);
     }
 
     public void cancel() {
-        if (!available || cancelEverything == null) return;
-        try {
-            cancelEverything.invoke(
-                    primaryBaritone.getClass().getMethod("getPathingBehavior").invoke(primaryBaritone)
-            );
-        } catch (Throwable t) {
-            LOG.warn("[BaritoneBridge] cancel failed: {}", t.toString());
-        }
+        run("stop");
+        run("cancel");
     }
 
     public boolean isPathing() {
-        if (!available || isPathing == null) return false;
+        if (!available || primaryBaritone == null) return false;
         try {
-            Object pathingBehavior = primaryBaritone.getClass()
-                    .getMethod("getPathingBehavior").invoke(primaryBaritone);
-            Object r = isPathing.invoke(pathingBehavior);
+            Object pb = primaryBaritone.getClass().getMethod("getPathingBehavior").invoke(primaryBaritone);
+            Object r = pb.getClass().getMethod("isPathing").invoke(pb);
             return r instanceof Boolean && (Boolean) r;
         } catch (Throwable t) {
             return false;
         }
     }
 
-    /** Run a raw Baritone chat command if present (#mine iron_ore etc). */
+    /** @deprecated use {@link #run(String)} */
     public boolean chatCommand(String cmd) {
-        if (!available) return false;
-        try {
-            Object cmdMgr = primaryBaritone.getClass().getMethod("getCommandManager").invoke(primaryBaritone);
-            Method execute = null;
-            for (Method m : cmdMgr.getClass().getMethods()) {
-                if (m.getName().equals("execute") && m.getParameterCount() >= 1) {
-                    execute = m;
-                    break;
-                }
-            }
-            if (execute == null) return false;
-            if (execute.getParameterCount() == 1) {
-                execute.invoke(cmdMgr, cmd);
-            } else {
-                execute.invoke(cmdMgr, cmd, null);
-            }
-            return true;
-        } catch (Throwable t) {
-            // fallback: many Baritone builds listen to chat with #
-            return false;
-        }
+        // strip leading #mine style if our phases pass "mine iron_ore"
+        return run(cmd);
     }
 }

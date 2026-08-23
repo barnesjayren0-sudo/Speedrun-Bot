@@ -1,77 +1,71 @@
-# Speedrun-Bot v1.1.0
+# Speedrun-Bot v1.2.0
 
-Fabric **1.20.1** Any% speedrun assistant with a **phase pipeline** and a **Baritone bridge**.
-
-Baritone is **optional at compile time** (reflection). Drop your Baritone jar (or custom fork) later and the bridge hooks automatically.
+Fabric **Minecraft 1.21.11** · Any% phase pipeline **on top of normal Baritone**
 
 ---
 
-## Status
+## Install (both jars)
 
-| Piece | State |
-|-------|--------|
-| Phase controller (Wood → Dragon) | Done |
-| Chat commands `.sr` | Done |
-| HUD | Done |
-| Baritone bridge (reflective) | Done — waits for jar |
-| Custom Baritone / structure find | **You supply files next** |
-| Portal builder / eye triangulate | Planned |
+1. Fabric Loader for **1.21.11**  
+2. Fabric API  
+3. **`baritone-fabric-1.21.11.jar`** → `mods/`  
+4. **`speedrun-bot-1.2.0.jar`** → `mods/`
+
+Baritone is a **separate mod**. Put the jar you have (`baritone-fabric-1.21.11.jar`) next to Speedrun-Bot.
 
 ---
 
-## Setup
+## Normal Baritone commands (`#`)
 
-1. Fabric 1.20.1 + Fabric API  
-2. Build:
-   ```bash
-   ./gradlew build
-   ```
-3. Put `speedrun-bot-1.1.0.jar` in `mods/`  
-4. (Later) Put **Baritone** Fabric jar in `mods/` too — restart, then `.sr baritone`
+These are handled by **Baritone itself** (we do not block `#` chat):
 
-### libs/ (optional)
-If you vendor Baritone into the repo:
-```text
-Speedrun-Bot/libs/baritone-api-fabric-....jar
-Speedrun-Bot/libs/baritone-standalone-fabric-....jar
-```
-Uncomment the `flatDir` deps in `build.gradle` when ready.
+| Command | What it does |
+|---------|----------------|
+| `#goto x y z` | Path to coords |
+| `#mine diamond_ore` | Mine ore |
+| `#stop` / `#cancel` | Stop pathing |
+| `#resume` | Resume after pause |
+| `#path` | Path to current goal |
+| `#explore` | Explore |
+| `#help` | List commands |
+
+**Note:** Baritone does **not** have `#start`. The real command is **`#resume`**.  
+Speedrun-Bot aliases `start` → `resume` when you use `.sr bati start` or `.sr resume`.
 
 ---
 
-## Commands
+## Speedrun commands (`.sr`)
 
 | Command | Action |
 |---------|--------|
-| `.sr start` | Start Any% pipeline |
-| `.sr stop` | Stop + cancel path |
-| `.sr skip` | Force next phase |
-| `.sr status` | Phase / timer / Baritone |
+| `.sr start` | Start Any% phase pipeline |
+| `.sr stop` | Stop pipeline |
+| `.sr skip` | Next phase |
+| `.sr status` | Phase + Baritone status |
 | `.sr baritone` | Re-hook Baritone |
-| `.sr goto IRON` | Jump to phase |
+| `.sr resume` | `#resume` |
+| `.sr bati <cmd>` | Run any Baritone command from code |
 | `.sr path x y z` | Path to block |
-| `.sr cancel` | Cancel path |
 
 ---
 
-## Phases
+## Build
 
-`WOOD → STONE → IRON → DIAMOND → NETHER → FORTRESS → BLAZE → PEARLS → STRONGHOLD → END → DONE`
+```bash
+git clone https://github.com/barnesjayren0-sudo/Speedrun-Bot.git
+cd Speedrun-Bot
+./gradlew build
+```
 
-Early phases issue Baritone `#mine` style commands when hooked.  
-Nether/fortress/pearls/stronghold are **stubs** until custom Baritone processes land.
-
----
-
-## Your custom Baritone (next)
-
-When you upload the Baritone sources/jar:
-
-1. We wire real `Goal` types instead of reflection  
-2. Add processes: portal build, fortress dig, blaze farm, eye throw  
-3. Optional: RSG seed-aware routing  
+Java **21** required.
 
 ---
 
-**Author:** barnesjayren0-sudo  
-**Version:** 1.1.0  
+## Architecture
+
+- **Baritone** = pathfinding + `#` commands (your jar)  
+- **Speedrun-Bot** = phase brain (wood → dragon) that *calls* Baritone when hooked  
+
+---
+
+**Version:** 1.2.0 · **MC:** 1.21.11  

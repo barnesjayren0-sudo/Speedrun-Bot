@@ -7,11 +7,11 @@ import org.slf4j.LoggerFactory;
 public class SpeedrunBotMod implements ModInitializer {
 
     public static final String MOD_ID = "speedrunbot";
-    public static final String VERSION = "1.1.0";
+    public static final String VERSION = "1.2.0";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
     @Override
     public void onInitialize() {
-        LOGGER.info("Speedrun-Bot {} common init", VERSION);
+        LOGGER.info("Speedrun-Bot {} common init (MC 1.21.11)", VERSION);
     }
 }
