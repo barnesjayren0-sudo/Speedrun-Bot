@@ -1,65 +1,51 @@
-# Speedrun-Bot v1.4.0 — SRBaritone (Minecraft 1.21.11)
+# Speedrun-Bot v1.5.0
 
-Built-in pathfinder for **Fabric 1.21.11** / **Java 21**.  
-Commands work like Baritone, including **`#start`**.
+**Minecraft 1.21.11** · SRBaritone pathfinder · **AltoClef-inspired task system**
 
----
-
-## Requirements
-
-| | |
-|--|--|
-| Minecraft | **1.21.11** |
-| Loader | Fabric ≥ 0.16 |
-| Java | **21+** |
-| Fabric API | matching 1.21.11 |
+Inspired by [AltoClef](https://github.com/AltoClef/altoclef) architecture (tasks + background chains), implemented on our own pathfinder — no Baritone jar required.
 
 ---
 
-## Build
+## Architecture (from AltoClef ideas)
+
+| Layer | Role |
+|-------|------|
+| **SRBaritone** | A* path + dig + `#start` |
+| **Task** | Subtask tree (`Get` → `Mine`) |
+| **TaskRunner** | One user task at a time |
+| **FoodChain** | Auto-eat when hungry |
+| **UnstuckChain** | Jump / turn when stuck |
+| **MobDefenseChain** | Hit nearby hostiles |
+
+---
+
+## Commands
+
+```text
+#start / #stop / #pause / #resume
+#goto 100 64 200
+#mine iron_ore 12
+#get iron 16
+#get diamond 5
+#get oak_log 10
+#thisway 80
+#task
+#help
+
+.sr start   (Any% phase pipeline)
+```
+
+---
+
+## Build (1.21.11)
 
 ```bash
-git clone https://github.com/barnesjayren0-sudo/Speedrun-Bot.git
-cd Speedrun-Bot
-git reset --hard origin/main
+git fetch origin && git reset --hard origin/main
 ./gradlew clean build --no-daemon
 ```
 
-Jar: `build/libs/speedrun-bot-1.4.0.jar` → `mods/`
+Java 21 · Fabric API for 1.21.11
 
 ---
 
-## SRBaritone (`#`)
-
-```text
-#start              start / resume path
-#stop               stop everything
-#pause / #resume
-#goto x y z
-#goto x z
-#mine iron_ore      also checks deepslate_* in 1.21
-#mine oak_log       also other log types
-#thisway 100
-#status
-#help
-```
-
-## Speedrun pipeline
-
-```text
-.sr start | stop | skip | status | goto WOOD
-```
-
----
-
-## v1.4.0 improvements
-
-- Pathfinder: better step-up, short drops, diagonal costs  
-- Movement: smoother look, stuck recovery, sprint control  
-- Mining: deepslate ore variants + multi-log for wood  
-- Settings: `SRSettings` tunables  
-- Locked to **1.21.11** Yarn / Fabric API  
-
----
-
-**Author:** barnesjayren0-sudo  
+**Version:** 1.5.0  

@@ -6,9 +6,6 @@ import com.speedrunbot.task.chains.MobDefenseChain;
 import com.speedrunbot.task.chains.UnstuckChain;
 import net.minecraft.client.MinecraftClient;
 
-/**
- * Runs one user task + background chains (AltoClef-inspired).
- */
 public class TaskRunner {
 
     private Task userTask;
@@ -18,7 +15,9 @@ public class TaskRunner {
 
     public void setUserTask(Task task) {
         MinecraftClient mc = MinecraftClient.getInstance();
-        if (userTask != null) userTask.forceStop(mc, null);
+        if (userTask != null) {
+            try { userTask.forceStop(mc, null); } catch (Exception ignored) {}
+        }
         userTask = task;
     }
 
@@ -33,10 +32,9 @@ public class TaskRunner {
     public void tick(MinecraftClient mc, SRBaritone srb) {
         if (mc.player == null) return;
 
-        // Background chains first (survival)
         food.tick(mc, srb);
         if (mobs.tickInterrupt(mc, srb)) {
-            return; // mob threat handles this tick
+            return;
         }
         unstuck.tick(mc, srb);
 
@@ -50,16 +48,10 @@ public class TaskRunner {
         }
     }
 
-    public Task getUserTask() {
-        return userTask;
-    }
-
-    public boolean isBusy() {
-        return userTask != null && !userTask.isStopped();
-    }
+    public Task getUserTask() { return userTask; }
+    public boolean isBusy() { return userTask != null && !userTask.isStopped(); }
 
     public String statusLine() {
-        if (userTask == null) return "idle";
-        return userTask.toString();
+        return userTask == null ? "idle" : userTask.toString();
     }
 }
